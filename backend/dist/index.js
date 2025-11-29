@@ -26,6 +26,11 @@ const project_route_1 = __importDefault(require("./routes/project.route"));
 const task_route_1 = __importDefault(require("./routes/task.route"));
 const app = (0, express_1.default)();
 const BASE_PATH = app_config_1.config.BASE_PATH;
+// CORS must be set before session to allow credentials
+app.use((0, cors_1.default)({
+    origin: app_config_1.config.FRONTEND_ORIGIN,
+    credentials: true,
+}));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cookie_session_1.default)({
@@ -36,12 +41,36 @@ app.use((0, cookie_session_1.default)({
     httpOnly: true,
     sameSite: app_config_1.config.NODE_ENV === "production" ? "none" : "lax",
 }));
+// Middleware to ensure SameSite=None is set correctly in production
+// This must be BEFORE passport.initialize() to intercept cookie setting
+if (app_config_1.config.NODE_ENV === "production") {
+    app.use((req, res, next) => {
+        const originalSetHeader = res.setHeader.bind(res);
+        res.setHeader = function (name, value) {
+            if (name.toLowerCase() === 'set-cookie') {
+                const cookies = Array.isArray(value) ? value : [value];
+                const updatedCookies = cookies.map((cookie) => {
+                    // Force SameSite=None and Secure for all session cookies
+                    if (cookie.includes('session=')) {
+                        // Remove any existing SameSite and Secure attributes
+                        let updatedCookie = cookie
+                            .replace(/;\s*SameSite=\w+/gi, '')
+                            .replace(/;\s*Secure/gi, '');
+                        // Add SameSite=None and Secure
+                        updatedCookie += '; SameSite=None; Secure';
+                        return updatedCookie;
+                    }
+                    return cookie;
+                });
+                return originalSetHeader('Set-Cookie', updatedCookies);
+            }
+            return originalSetHeader(name, value);
+        };
+        next();
+    });
+}
 app.use(passport_1.default.initialize());
 app.use(passport_1.default.session());
-app.use((0, cors_1.default)({
-    origin: app_config_1.config.FRONTEND_ORIGIN,
-    credentials: true,
-}));
 app.get(`/`, (0, asyncHandler_middleware_1.asyncHandler)(async (req, res, next) => {
     // In production we should not throw on the root path because
     // platforms (like Render) poll the root URL for health checks.

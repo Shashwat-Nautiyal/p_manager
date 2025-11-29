@@ -47,10 +47,8 @@ app.use(
   })
 );
 
-app.use(passport.initialize());
-app.use(passport.session());
-
 // Middleware to ensure SameSite=None is set correctly in production
+// This must be BEFORE passport.initialize() to intercept cookie setting
 if (config.NODE_ENV === "production") {
   app.use((req, res, next) => {
     const originalSetHeader = res.setHeader.bind(res);
@@ -58,18 +56,14 @@ if (config.NODE_ENV === "production") {
       if (name.toLowerCase() === 'set-cookie') {
         const cookies = Array.isArray(value) ? value : [value];
         const updatedCookies = cookies.map((cookie: string) => {
-          // If the cookie doesn't already have SameSite=None, add it
-          if (cookie.includes('session=') && !cookie.includes('SameSite=None')) {
-            // Remove any existing SameSite attribute
-            let updatedCookie = cookie.replace(/;\s*SameSite=\w+/gi, '');
-            // Add SameSite=None
-            if (!updatedCookie.includes('SameSite')) {
-              updatedCookie += '; SameSite=None';
-            }
-            // Ensure Secure is present
-            if (!updatedCookie.includes('Secure')) {
-              updatedCookie += '; Secure';
-            }
+          // Force SameSite=None and Secure for all session cookies
+          if (cookie.includes('session=')) {
+            // Remove any existing SameSite and Secure attributes
+            let updatedCookie = cookie
+              .replace(/;\s*SameSite=\w+/gi, '')
+              .replace(/;\s*Secure/gi, '');
+            // Add SameSite=None and Secure
+            updatedCookie += '; SameSite=None; Secure';
             return updatedCookie;
           }
           return cookie;
@@ -81,6 +75,9 @@ if (config.NODE_ENV === "production") {
     next();
   });
 }
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.get(
   `/`,
