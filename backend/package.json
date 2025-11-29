@@ -8,13 +8,12 @@
     "build": "tsc && cp ./package.json ./dist",
     "start": "node dist/index.js"
   },
-  
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "cookie-session": "^2.1.0",
+    "cookie-session": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
