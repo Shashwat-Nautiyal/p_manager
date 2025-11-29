@@ -24,60 +24,38 @@ import taskRoutes from "./routes/task.route";
 const app = express();
 const BASE_PATH = config.BASE_PATH;
 
-// CORS must be set before session to allow credentials
+// If app is behind a proxy (Render, Heroku, etc.) we must trust it so express
+// recognizes the original scheme/proto. This is required for secure cookies.
+app.set('trust proxy', 1);
+
+// Important: apply CORS before session/cookie middleware so that cross-site
+// responses (including Set-Cookie) include the Access-Control-Allow-* headers.
 app.use(
   cors({
-    origin: config.FRONTEND_ORIGIN,
+    origin: config.FRONTEND_ORIGIN, // exact origin, no wildcard
     credentials: true,
   })
 );
 
+// Body parsers after CORS
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
 
+// Session / cookie middleware after CORS and after trust proxy is set
 app.use(
   session({
     name: "session",
     keys: [config.SESSION_SECRET],
-    maxAge: 24 * 60 * 60 * 1000,
-    secure: config.NODE_ENV === "production",
+    maxAge: Number(config.SESSION_EXPIRES_IN) || 24 * 60 * 60 * 1000,
+    secure: true,         // requires HTTPS; Render provides HTTPS
     httpOnly: true,
-    sameSite: config.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: 'none',     // required for cross-site cookie use
   })
 );
 
-// Middleware to ensure SameSite=None is set correctly in production
-// This must be BEFORE passport.initialize() to intercept cookie setting
-if (config.NODE_ENV === "production") {
-  app.use((req, res, next) => {
-    const originalSetHeader = res.setHeader.bind(res);
-    res.setHeader = function (name: string, value: any) {
-      if (name.toLowerCase() === 'set-cookie') {
-        const cookies = Array.isArray(value) ? value : [value];
-        const updatedCookies = cookies.map((cookie: string) => {
-          // Force SameSite=None and Secure for all session cookies
-          if (cookie.includes('session=')) {
-            // Remove any existing SameSite and Secure attributes
-            let updatedCookie = cookie
-              .replace(/;\s*SameSite=\w+/gi, '')
-              .replace(/;\s*Secure/gi, '');
-            // Add SameSite=None and Secure
-            updatedCookie += '; SameSite=None; Secure';
-            return updatedCookie;
-          }
-          return cookie;
-        });
-        return originalSetHeader('Set-Cookie', updatedCookies);
-      }
-      return originalSetHeader(name, value);
-    };
-    next();
-  });
-}
-
 app.use(passport.initialize());
 app.use(passport.session());
+
 
 app.get(
   `/`,
