@@ -52,12 +52,25 @@ app.use(
 app.get(
   `/`,
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    throw new BadRequestException(
-      "This is a bad request",
-      ErrorCodeEnum.AUTH_INVALID_TOKEN
-    );
+    // In production we should not throw on the root path because
+    // platforms (like Render) poll the root URL for health checks.
+    // Return a simple health/status response. If you need to surface
+    // errors for debugging, keep them behind a development flag.
+    if (config.NODE_ENV !== "production") {
+      // In development, allow a test error to be thrown when explicitly requested
+      const { testError } = req.query;
+      if (testError === "1") {
+        throw new BadRequestException(
+          "This is a bad request",
+          ErrorCodeEnum.AUTH_INVALID_TOKEN
+        );
+      }
+    }
+
     return res.status(HTTPSTATUS.OK).json({
-      message: "Hello Subscribe to the channel & share",
+      status: "ok",
+      env: config.NODE_ENV,
+      message: "Service is running",
     });
   })
 );
