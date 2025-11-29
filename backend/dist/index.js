@@ -34,7 +34,7 @@ app.use((0, cookie_session_1.default)({
     maxAge: 24 * 60 * 60 * 1000,
     secure: app_config_1.config.NODE_ENV === "production",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: app_config_1.config.NODE_ENV === "production" ? "none" : "lax",
 }));
 app.use(passport_1.default.initialize());
 app.use(passport_1.default.session());
@@ -43,9 +43,21 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 app.get(`/`, (0, asyncHandler_middleware_1.asyncHandler)(async (req, res, next) => {
-    throw new appError_1.BadRequestException("This is a bad request", error_code_enum_1.ErrorCodeEnum.AUTH_INVALID_TOKEN);
+    // In production we should not throw on the root path because
+    // platforms (like Render) poll the root URL for health checks.
+    // Return a simple health/status response. If you need to surface
+    // errors for debugging, keep them behind a development flag.
+    if (app_config_1.config.NODE_ENV !== "production") {
+        // In development, allow a test error to be thrown when explicitly requested
+        const { testError } = req.query;
+        if (testError === "1") {
+            throw new appError_1.BadRequestException("This is a bad request", error_code_enum_1.ErrorCodeEnum.AUTH_INVALID_TOKEN);
+        }
+    }
     return res.status(http_config_1.HTTPSTATUS.OK).json({
-        message: "Hello Subscribe to the channel & share",
+        status: "ok",
+        env: app_config_1.config.NODE_ENV,
+        message: "Service is running",
     });
 }));
 app.use(`${BASE_PATH}/auth`, auth_route_1.default);

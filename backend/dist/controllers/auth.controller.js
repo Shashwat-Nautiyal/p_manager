@@ -11,10 +11,15 @@ const http_config_1 = require("../config/http.config");
 const auth_service_1 = require("../services/auth.service");
 const passport_1 = __importDefault(require("passport"));
 exports.googleLoginCallback = (0, asyncHandler_middleware_1.asyncHandler)(async (req, res) => {
+    console.log("Google OAuth callback hit");
+    console.log("User from session:", req.user);
+    console.log("Session:", req.session);
     const currentWorkspace = req.user?.currentWorkspace;
     if (!currentWorkspace) {
+        console.log("No current workspace found, redirecting to failure");
         return res.redirect(`${app_config_1.config.FRONTEND_GOOGLE_CALLBACK_URL}?status=failure`);
     }
+    console.log(`Redirecting to workspace: ${currentWorkspace}`);
     return res.redirect(`${app_config_1.config.FRONTEND_ORIGIN}/workspace/${currentWorkspace}`);
 });
 exports.registerUserController = (0, asyncHandler_middleware_1.asyncHandler)(async (req, res) => {
