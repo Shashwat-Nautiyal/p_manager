@@ -33,9 +33,9 @@ app.use(
     name: "session",
     keys: [config.SESSION_SECRET],
     maxAge: 24 * 60 * 60 * 1000,
-    secure: config.NODE_ENV === "production",
+    secure: true,
     httpOnly: true,
-    sameSite: config.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: 'none',
   })
 );
 
