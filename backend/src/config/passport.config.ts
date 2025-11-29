@@ -10,6 +10,7 @@ import {
   loginOrCreateAccountService,
   verifyUserService,
 } from "../services/auth.service";
+import UserModel from "../models/user.model"; // <--- 1. Added Import
 
 passport.use(
   new GoogleStrategy(
@@ -62,5 +63,19 @@ passport.use(
   )
 );
 
-passport.serializeUser((user: any, done) => done(null, user));
-passport.deserializeUser((user: any, done) => done(null, user));
+// --- 2. UPDATED SERIALIZATION LOGIC ---
+
+// Only save the user ID into the session cookie (keeps it small)
+passport.serializeUser((user: any, done) => {
+  done(null, user._id);
+});
+
+// Use that ID to find the full user object from the DB on every request
+passport.deserializeUser(async (id: any, done) => {
+  try {
+    const user = await UserModel.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
